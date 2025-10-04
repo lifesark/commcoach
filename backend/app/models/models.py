@@ -41,3 +41,20 @@ class Feedback(Base):
     overall = Column(Integer)
     tips = Column(Text)  # JSON string
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class UserProgress(Base):
+    __tablename__ = "user_progress"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String, index=True)  # Supabase auth.uid()
+    total_sessions = Column(Integer, default=0)
+    total_xp = Column(Integer, default=0)
+    current_level = Column(Integer, default=1)
+    current_streak = Column(Integer, default=0)
+    longest_streak = Column(Integer, default=0)
+    last_session_date = Column(DateTime, nullable=True)
+    badges = Column(JSON, default=list)  # List of earned badges
+    stats = Column(JSON, default=dict)  # Mode-specific stats
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+Index("idx_user_progress_user_id", UserProgress.user_id)

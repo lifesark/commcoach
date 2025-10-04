@@ -4,6 +4,7 @@ from app.core.db import SessionLocal
 from app.models.models import Session as S, Message, Feedback
 from app.services.feedback_service import analyze
 from app.services.storage import put_json, transcript_path
+from app.services.progress_service import progress_service
 from app.routers.deps_supabase import get_current_user
 
 router = APIRouter()
@@ -25,6 +26,14 @@ def compute_feedback(session_id: str, user = Depends(get_current_user)):
             fluency=fb["fluency"], time_score=fb["time"], overall=fb["overall"], tips=dumps(fb["tips"])
         )
         db.add(rec); db.commit()
+
+        # Update user progress
+        try:
+            progress_update = progress_service.update_progress(user["sub"], session_id, fb)
+            fb["progress_update"] = progress_update
+        except Exception as e:
+            print(f"Progress update failed: {e}")
+            # Don't fail the feedback if progress update fails
 
         try:
             path = transcript_path(user.get("sub"), session_id)

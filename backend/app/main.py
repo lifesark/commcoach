@@ -4,7 +4,7 @@ from slowapi.middleware import SlowAPIMiddleware
 import logging, sys
 
 from app.core.settings import settings
-from app.routers import health, debate_config, realtime, feedback, history
+from app.routers import health, debate_config, realtime, feedback, history, stt, tts, internet, personas, progress
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -29,6 +29,11 @@ app.include_router(debate_config.router, tags=["session"])
 app.include_router(realtime.router, prefix="/realtime", tags=["realtime"])
 app.include_router(feedback.router, tags=["feedback"])
 app.include_router(history.router, tags=["history"])
+app.include_router(stt.router, prefix="/stt", tags=["speech-to-text"])
+app.include_router(tts.router, prefix="/tts", tags=["text-to-speech"])
+app.include_router(internet.router, prefix="/internet", tags=["internet"])
+app.include_router(personas.router, prefix="/personas", tags=["personas"])
+app.include_router(progress.router, prefix="/progress", tags=["progress"])
 
 @app.get("/")
 def root():

@@ -1,0 +1,9 @@
+#include "resource.h"
+
+IDI_ICON1 ICON "app_icon.ico"
+
+IDR_ACCELERATOR1 ACCELERATORS
+BEGIN
+    "Q",            ID_FILE_QUIT,           VIRTKEY, CONTROL
+    "F11",          ID_VIEW_FULLSCREEN,     VIRTKEY
+END

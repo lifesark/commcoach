@@ -42,7 +42,7 @@ async def ws_endpoint(ws: WebSocket):
                     await ws_send(ws, "round_started", round=s.round_no, turn=s.turn, turn_seconds=s.config.get("turn_s", 60))
 
             elif typ == "user_text":
-                txt = (data.get("text") or "").trim() if isinstance(data.get("text"), str) else (data.get("text") or "")
+                txt = (data.get("text") or "").strip() if isinstance(data.get("text"), str) else (data.get("text") or "")
                 txt = txt.strip()
                 if not txt or not session_id: continue
 
@@ -55,9 +55,10 @@ async def ws_endpoint(ws: WebSocket):
 
                     await ws_send(ws, "ai_reply_start")
                     full = []
+                    persona_type = data.get("persona_type")  # Get persona from client
                     try:
                         for chunk in llm.stream(
-                            s.mode, s.topic, s.round_no, s.config.get("rounds",3), "ai", s.config.get("turn_s",60), txt
+                            s.mode, s.topic, s.round_no, s.config.get("rounds",3), "ai", s.config.get("turn_s",60), txt, persona_type
                         ):
                             if not chunk: continue
                             full.append(chunk)
@@ -67,7 +68,7 @@ async def ws_endpoint(ws: WebSocket):
                         pass
 
                     reply = "".join(full).strip() or llm.generate(
-                        s.mode, s.topic, s.round_no, s.config.get("rounds",3), "ai", s.config.get("turn_s",60), txt
+                        s.mode, s.topic, s.round_no, s.config.get("rounds",3), "ai", s.config.get("turn_s",60), txt, persona_type
                     )
 
                     await ws_send(ws, "ai_reply_end", text=reply)

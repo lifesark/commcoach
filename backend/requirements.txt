@@ -2,6 +2,7 @@
 fastapi
 uvicorn[standard]
 pydantic
+pydantic-settings
 python-dotenv
 
 # DB + migrations
@@ -21,12 +22,27 @@ google-generativeai
 httpx
 
 # Supabase
-supabase
+supabase==2.3.4
+postgrest==0.13.2
 
 # Feedback utils (basic scoring)
 numpy
 scikit-learn
 tqdm
+
+# Voice Processing
+pydub
+librosa
+soundfile
+
+# Internet APIs
+wikipedia
+newsapi-python
+requests-html
+
+# Additional utilities
+python-multipart
+aiofiles
 
 # Tests
 pytest

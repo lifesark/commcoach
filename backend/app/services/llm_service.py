@@ -2,6 +2,7 @@ import time
 from typing import Iterable
 from app.core.settings import settings
 import google.generativeai as genai
+from app.services.persona_service import persona_service, PersonaType
 
 class LLMService:
     def __init__(self):
@@ -10,21 +11,32 @@ class LLMService:
         self._consec_fail = 0
         self._open = False
 
-    def persona_system(self, mode, topic, round_no, rounds, turn, turn_s):
-        return (
-            "You are a skilled human debater and coach. "
-            f"Mode: {mode}; Topic: {topic}; Round {round_no}/{rounds}; Turn: {turn}; Time: {turn_s}s. "
-            "Speak naturally in 2–5 sentences. Use one concrete example or stat. "
-            "Avoid meta-talk like 'as an AI'. Advance the discussion and end with a forward pointer."
+    def persona_system(self, mode, topic, round_no, rounds, turn, turn_s, persona_type=None):
+        """
+        Get system prompt based on persona type and context
+        """
+        if persona_type:
+            try:
+                persona_enum = PersonaType(persona_type)
+                return persona_service.get_system_prompt(
+                    persona_enum, mode, topic, round_no, rounds, turn, turn_s
+                )
+            except ValueError:
+                pass
+        
+        # Fallback to mode-based persona selection
+        persona_enum = persona_service.get_persona_for_mode(mode)
+        return persona_service.get_system_prompt(
+            persona_enum, mode, topic, round_no, rounds, turn, turn_s
         )
 
     def _fallback(self, _):
         return ("Let’s refine the claim, add one example or statistic, and tie it to impact. "
                 "What’s your strongest evidence?")
 
-    def generate(self, mode, topic, round_no, rounds, turn, turn_s, user_text):
+    def generate(self, mode, topic, round_no, rounds, turn, turn_s, user_text, persona_type=None):
         if self._open: return self._fallback(user_text)
-        system = self.persona_system(mode, topic, round_no, rounds, turn, turn_s)
+        system = self.persona_system(mode, topic, round_no, rounds, turn, turn_s, persona_type)
         backoff = 0.6
         for _ in range(4):
             try:
@@ -43,10 +55,10 @@ class LLMService:
                 time.sleep(backoff); backoff *= 2
         return self._fallback(user_text)
 
-    def stream(self, mode, topic, round_no, rounds, turn, turn_s, user_text) -> Iterable[str]:
+    def stream(self, mode, topic, round_no, rounds, turn, turn_s, user_text, persona_type=None) -> Iterable[str]:
         if self._open:
             yield self._fallback(user_text); return
-        system = self.persona_system(mode, topic, round_no, rounds, turn, turn_s)
+        system = self.persona_system(mode, topic, round_no, rounds, turn, turn_s, persona_type)
         backoff = 0.6
         for _ in range(4):
             try:
