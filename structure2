@@ -1,0 +1,39 @@
+commcoach/
+├─ .env.example
+├─ docker-compose.yml
+├─ README.md
+├─ backend/
+│  ├─ Dockerfile
+│  ├─ requirements.txt
+│  ├─ alembic.ini                # created by `alembic init` (see below)
+│  ├─ migrations/                # created by `alembic init`
+│  │  ├─ env.py                  # replace with the one below
+│  │  ├─ script.py.mako
+│  │  └─ versions/               # created by `alembic revision`
+│  └─ app/
+│     ├─ __init__.py
+│     ├─ main.py
+│     ├─ core/
+│     │  ├─ __init__.py
+│     │  ├─ settings.py
+│     │  └─ db.py
+│     ├─ models/
+│     │  ├─ __init__.py
+│     │  └─ models.py
+│     ├─ services/
+│     │  ├─ __init__.py
+│     │  ├─ llm_service.py
+│     │  ├─ session_sm.py
+│     │  ├─ feedback_service.py
+│     │  └─ storage.py
+│     └─ routers/
+│        ├─ __init__.py
+│        ├─ health.py
+│        ├─ deps_supabase.py
+│        ├─ debate_config.py
+│        ├─ realtime.py
+│        ├─ feedback.py
+│        └─ history.py
+└─ tests/
+   ├─ test_feedback.py
+   └─ test_health.py
