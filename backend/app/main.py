@@ -56,3 +56,7 @@ app.include_router(progress.router, prefix="/progress", tags=["progress"])
 @app.get("/")
 def root():
     return {"status": "ok", "service": "CommCoach API"}
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
