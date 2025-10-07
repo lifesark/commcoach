@@ -1,10 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
+from contextlib import asynccontextmanager
 import logging, sys
 
 from app.core.settings import settings
-from app.routers import health, debate_config, realtime, feedback, history, stt, tts, internet, personas, progress
+from app.routers import (
+    health, debate_config, realtime, feedback, history, stt, tts, internet, personas, progress
+)
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -12,8 +18,18 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s :: %(message)s",
 )
 
-app = FastAPI(title="CommCoach API (Supabase + Gemini)", version="1.0.0")
+# Lifespan ensures state is populated *before* any middleware handles requests
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    limiter = Limiter(key_func=get_remote_address)
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    yield
+    # teardown (nothing needed)
 
+app = FastAPI(title="CommCoach API (Supabase + Gemini)", version="1.0.0", lifespan=lifespan)
+
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.origins_list or ["*"],
@@ -22,8 +38,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add SlowAPI middleware *after* lifespan has registered app.state.limiter
 app.add_middleware(SlowAPIMiddleware)
 
+# Routers
 app.include_router(health.router, tags=["health"])
 app.include_router(debate_config.router, tags=["session"])
 app.include_router(realtime.router, prefix="/realtime", tags=["realtime"])
@@ -37,4 +55,4 @@ app.include_router(progress.router, prefix="/progress", tags=["progress"])
 
 @app.get("/")
 def root():
-    return {"status":"ok","service":"CommCoach API"}
+    return {"status": "ok", "service": "CommCoach API"}
