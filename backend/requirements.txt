@@ -1,49 +1,54 @@
-# Web
-fastapi
-uvicorn[standard]
-pydantic
-pydantic-settings
-python-dotenv
+# ── Web
+fastapi==0.118.0
+starlette==0.48.0
+uvicorn[standard]==0.37.0
+pydantic==2.11.10
+pydantic-settings==2.11.0
+python-dotenv==1.0.1
 
-# DB + migrations
-sqlalchemy
-psycopg2-binary
-alembic
+# ── DB + migrations
+sqlalchemy==2.0.43
+psycopg2-binary==2.9.10
+alembic==1.16.5
 
-# Security / utils
-slowapi
-PyJWT
-cryptography
-requests
-cachetools
+# ── Security / utils
+slowapi==0.1.9
+PyJWT==2.9.0
+cryptography==43.0.3
+requests==2.32.3
+cachetools==6.2.0
 
-# LLM: Gemini
-google-generativeai
-httpx
+# ── LLM: Gemini
+google-generativeai==0.8.5
+httpx==0.25.2
 
-# Supabase
+# ── Supabase
 supabase==2.3.4
 postgrest==0.13.2
 
-# Feedback utils (basic scoring)
-numpy
-scikit-learn
-tqdm
+# ── Feedback utils (basic scoring)
+numpy==2.2.6
+scipy==1.15.3
+scikit-learn==1.7.2
+numba==0.62.1
+llvmlite==0.45.1
+tqdm==4.67.1
 
-# Voice Processing
-pydub
-librosa
-soundfile
+# ── Voice Processing
+pydub==0.25.1
+librosa==0.11.0
+soundfile==0.13.1
 
-# Internet APIs
-wikipedia
-newsapi-python
-requests-html
+# ── Internet APIs
+wikipedia==1.4.0
+newsapi-python==0.2.7
+requests-html==0.10.0
+pyppeteer==0.0.25
 
-# Additional utilities
-python-multipart
-aiofiles
+# ── Additional utilities
+python-multipart==0.0.20
+aiofiles==24.1.0
 
-# Tests
-pytest
-pytest-asyncio
+# ── Tests
+pytest==8.4.2
+pytest-asyncio==1.2.0
