@@ -1,0 +1,56 @@
+
+
+services:
+  db:
+    image: postgres:15
+    container_name: commcoach-db
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: commcoach-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PYTHONPATH: /app
+      # Database URL for SQLAlchemy/Alembic
+      DATABASE_URL: postgresql+psycopg2://${DB_USER}:${DB_PASS}@db:5432/${DB_NAME}
+      # Auth/CORS
+      JWT_SECRET: ${JWT_SECRET}
+      API_ORIGINS: ${API_ORIGINS}
+      # Providers
+      PROVIDER_LLM: ${PROVIDER_LLM}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      HF_TOKEN: ${HF_TOKEN}
+      # Misc
+      COMMCOACH_ENV: prod
+    ports:
+      - "8000:8000"
+    # Run migrations, then start API
+    command: >
+      sh -c "
+      alembic upgrade head &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8000
+      "
+    volumes:
+      - api_data:/app/data
+
+volumes:
+  pgdata:
+  api_data:

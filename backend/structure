@@ -1,0 +1,25 @@
+commcoach/
+└─ backend/
+   ├─ app/
+   │  ├─ __init__.py
+   │  ├─ main.py
+   │  ├─ core/
+   │  │  ├─ __init__.py
+   │  │  └─ sessions.py
+   │  ├─ routers/
+   │  │  ├─ __init__.py
+   │  │  ├─ debate.py
+   │  │  ├─ asr.py
+   │  │  ├─ tts.py
+   │  │  └─ feedback.py
+   │  │  └─ history.py
+   │  └─ services/
+   │     ├─ __init__.py
+   │     ├─ llm_service.py
+   │     ├─ asr_service.py
+   │     ├─ tts_service.py
+   │     └─ feedback_service.py
+   ├─ tests/
+   │  └─ test_flow.py
+   ├─ requirements.txt
+   └─ .env.example

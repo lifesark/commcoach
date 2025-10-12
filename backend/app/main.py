@@ -6,7 +6,7 @@ import sys
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 # ── Rate limiting (SlowAPI)
@@ -21,8 +21,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.core.settings import settings
-from app.core.db import engine  # reuse your SQLAlchemy engine
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 
 # ── Routers (keep these as they exist in your project)
 from app.routers import (
@@ -45,41 +45,66 @@ logging.basicConfig(
 )
 log = logging.getLogger("commcoach.main")
 
-# ── Simple readiness state container (you can expand as needed)
-_ready = {"ok": True, "reason": "booting"}
+
+async def test_db_connection(url: str) -> tuple[bool, str]:
+    """
+    Test database connectivity during startup.
+    Returns (success: bool, message: str)
+    """
+    try:
+        log.info("Creating test database engine...")
+        engine = create_engine(url, pool_pre_ping=True)
+        log.info("Attempting database connection...")
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        log.info("Database connection test successful")
+        engine.dispose()
+        return True, "Database connection verified"
+    except SQLAlchemyError as e:
+        error_msg = f"Database connection failed: {e.__class__.__name__}"
+        log.error(f"{error_msg}: {str(e)[:200]}")
+        return False, error_msg
+    except Exception as e:
+        error_msg = f"Unexpected error during DB test: {e.__class__.__name__}"
+        log.error(f"{error_msg}: {str(e)[:200]}")
+        return False, error_msg
 
 
-# ── Lifespan: create limiter BEFORE middleware so app.state.limiter exists
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Application lifespan: startup and shutdown events"""
+
+    # ── Initialize rate limiter
     limiter = Limiter(key_func=get_remote_address)
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-    # Any other startup checks can go here
-    db_url = os.getenv("DATABASE_URL")
-    log.info(f"Startup: DATABASE_URL is {'SET' if db_url else 'NOT SET'}")
+    # ── Initialize readiness state
+    app.state.ready = False
+    app.state.ready_reason = "initializing"
 
+    # ── Check DATABASE_URL
+    db_url = os.getenv("DATABASE_URL")
     if not db_url:
-        _ready["ok"] = False
-        _ready["reason"] = "DATABASE_URL is not set"
-        log.warning("DATABASE_URL not set; /ready will be false until provided.")
+        log.warning("Startup: DATABASE_URL is NOT SET")
+        app.state.ready = False
+        app.state.ready_reason = "DATABASE_URL is not set"
     else:
-        # Try to connect to verify the database is accessible
-        try:
-            log.info("Testing database connection during startup...")
-            with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-            _ready["ok"] = True
-            _ready["reason"] = "configured"
-            log.info("Database connection successful - app is ready")
-        except Exception as e:
-            _ready["ok"] = False
-            _ready["reason"] = f"Database connection failed: {e.__class__.__name__}"
-            log.error(f"Database connection failed during startup: {e}")
+        log.info("Startup: DATABASE_URL is SET")
+
+        # ── Test database connection
+        success, message = await test_db_connection(db_url)
+        app.state.ready = success
+        app.state.ready_reason = message
+
+        if success:
+            log.info("✓ Application is READY")
+        else:
+            log.warning(f"✗ Application NOT ready: {message}")
 
     yield
-    # ── teardown if needed
+
+    # ── Teardown
     log.info("Application shutdown")
 
 
@@ -101,7 +126,7 @@ app.add_middleware(
 # ── SlowAPI middleware (must come AFTER lifespan has set app.state.limiter)
 app.add_middleware(SlowAPIMiddleware)
 
-# ── Routers (do NOT include a separate 'health' router to avoid path conflicts)
+# ── Routers
 app.include_router(debate_config.router, tags=["session"])
 app.include_router(realtime.router, prefix="/realtime", tags=["realtime"])
 app.include_router(feedback.router, tags=["feedback"])
@@ -113,61 +138,49 @@ app.include_router(personas.router, prefix="/personas", tags=["personas"])
 app.include_router(progress.router, prefix="/progress", tags=["progress"])
 
 
-# ── Health & Ready
+# ── Health & Readiness Endpoints
 @app.get("/", tags=["default"])
 def root():
+    """Root endpoint"""
     return {"status": "ok", "service": "CommCoach API"}
 
 
 @app.get("/health", tags=["health"])
 def health():
     """
-    Lightweight liveness probe - just checks if the app is running.
-    Always returns 200 OK if the server is up.
+    Liveness probe - checks if the application is running.
+    Returns 200 OK if the server process is alive.
     """
     return {"status": "ok", "service": "CommCoach API"}
 
 
 @app.get("/ready", tags=["health"])
-def ready():
+def ready(request: Request):
     """
-    Readiness probe:
-      - verifies basic configuration
-      - checks database connectivity
-    Returns detailed status and reason when not ready.
+    Readiness probe - checks if the application is ready to serve traffic.
+    Verifies database connectivity and required configuration.
     """
-    # Log current state for debugging
-    log.info(f"Ready check: _ready state = {_ready}")
-    log.info(f"DATABASE_URL present: {bool(os.getenv('DATABASE_URL'))}")
+    is_ready = getattr(request.app.state, "ready", False)
+    reason = getattr(request.app.state, "ready_reason", "unknown")
 
-    if not _ready.get("ok", False):
-        reason = _ready.get("reason", "unknown")
-        log.warning(f"Not ready (initial check): {reason}")
-        return {"ready": False, "reason": reason}
+    log.info(f"Readiness check: ready={is_ready}, reason={reason}")
 
-    # Double-check DATABASE_URL is still set (shouldn't change, but be defensive)
-    db_url = os.getenv("DATABASE_URL")
-    if not db_url:
-        log.warning("DATABASE_URL is not set (runtime check)")
-        return {"ready": False, "reason": "DATABASE_URL is not set"}
-
-    # Probe DB (quick health check)
-    try:
-        log.info("Attempting database connection check...")
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        log.info("Database connection successful")
-        return {"ready": True, "reason": "all checks passed"}
-    except Exception as e:
-        # Be informative but avoid leaking secrets
-        error_msg = f"db check failed: {e.__class__.__name__}"
-        log.error(f"Database connection failed: {e}")
-        return {"ready": False, "reason": error_msg}
+    return {
+        "ready": is_ready,
+        "reason": reason
+    }
 
 
 if __name__ == "__main__":
     import uvicorn
 
     port = int(os.getenv("PORT", 8000))
-    # Bind to 0.0.0.0 for container/remote access; use localhost for strictly local
-    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=os.getenv("RELOAD", "1") == "1")
+    reload = os.getenv("RELOAD", "1") == "1"
+
+    log.info(f"Starting server on port {port} (reload={reload})")
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=port,
+        reload=reload
+    )
